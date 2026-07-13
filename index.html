@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>✦ Luna ✦</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Trirong:wght@400;500;600&family=Noto+Serif+Thai:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="stars" aria-hidden="true"></div>
+
+  <!-- ตกแต่งช่องว่างซ้าย-ขวา: ดาวระยิบระยับ + ดาวตก -->
+  <div class="side-decor left" aria-hidden="true">
+    <span class="tw"></span><span class="tw"></span><span class="tw"></span><span class="tw"></span>
+    <span class="tw"></span><span class="tw"></span><span class="tw"></span><span class="tw"></span>
+    <span class="tw"></span><span class="tw"></span><span class="tw"></span><span class="tw"></span>
+    <span class="spark">✦</span><span class="spark">✧</span><span class="spark">✩</span><span class="spark">✦</span>
+    <span class="shoot"></span><span class="shoot"></span><span class="shoot"></span><span class="shoot"></span>
+  </div>
+  <div class="side-decor right" aria-hidden="true">
+    <span class="tw"></span><span class="tw"></span><span class="tw"></span><span class="tw"></span>
+    <span class="tw"></span><span class="tw"></span><span class="tw"></span><span class="tw"></span>
+    <span class="tw"></span><span class="tw"></span><span class="tw"></span><span class="tw"></span>
+    <span class="spark">✧</span><span class="spark">✦</span><span class="spark">✩</span><span class="spark">✧</span>
+    <span class="shoot"></span><span class="shoot"></span><span class="shoot"></span><span class="shoot"></span>
+  </div>
+
+  <div class="top-controls">
+    <div class="user-chip" id="userChip" hidden>
+      <span class="user-avatar" id="userAvatar"></span>
+      <span class="user-name" id="userName"></span>
+      <button class="logout-btn" id="logoutBtn">Log out</button>
+    </div>
+    <button class="admin-btn" id="adminBtn" hidden>🛡️ Admin</button>
+    <button class="settings-btn" id="settingsBtn" aria-label="Settings">⚙️</button>
+    <div class="lang-switch" role="group" aria-label="Language">
+      <button class="lang-btn active" data-lang="en">EN</button>
+      <button class="lang-btn" data-lang="th">ไทย</button>
+    </div>
+  </div>
+
+  <!-- ============ Login / Register gate ============ -->
+  <div class="auth-overlay" id="authOverlay" hidden>
+    <div class="auth-aura" aria-hidden="true">
+      <span class="orb orb-1"></span>
+      <span class="orb orb-2"></span>
+      <span class="orb orb-3"></span>
+      <span class="float-sym s1">✦</span>
+      <span class="float-sym s2">☾</span>
+      <span class="float-sym s3">✧</span>
+      <span class="float-sym s4">★</span>
+      <span class="float-sym s5">✦</span>
+    </div>
+    <div class="auth-card">
+      <div class="auth-lang" role="group" aria-label="Language">
+        <button data-lang="en" class="active">EN</button>
+        <button data-lang="th">ไทย</button>
+      </div>
+
+      <div class="auth-brand">
+        <span class="auth-mark">✦</span>
+        <h2 id="authTitle">Luna</h2>
+        <p id="authSubtitle">Sign in to begin your reading</p>
+      </div>
+
+      <div class="auth-tabs" role="tablist">
+        <button class="auth-tab active" data-tab="login" id="tabLogin">Sign In</button>
+        <button class="auth-tab" data-tab="register" id="tabRegister">Register</button>
+      </div>
+
+      <!-- Sign in -->
+      <form class="auth-form" id="loginForm" novalidate>
+        <div class="auth-field">
+          <label for="loginEmail" id="lblLoginEmail">Email</label>
+          <input class="auth-input" type="email" id="loginEmail" autocomplete="email" placeholder="you@email.com" />
+        </div>
+        <div class="auth-field">
+          <label for="loginPassword" id="lblLoginPassword">Password</label>
+          <input class="auth-input" type="password" id="loginPassword" autocomplete="current-password" placeholder="••••••••" />
+        </div>
+        <label class="auth-remember">
+          <input type="checkbox" id="rememberMe" checked />
+          <span class="auth-check"></span>
+          <span id="lblRemember">Remember me</span>
+        </label>
+        <button class="auth-submit" type="submit" id="loginSubmit">Sign In</button>
+        <button type="button" class="auth-forgot" id="forgotLink">Forgot password?</button>
+      </form>
+
+      <!-- Register -->
+      <form class="auth-form" id="registerForm" hidden novalidate>
+        <div class="auth-field">
+          <label for="regName" id="lblRegName">Name</label>
+          <input class="auth-input" type="text" id="regName" autocomplete="name" placeholder="Your name" />
+        </div>
+        <div class="auth-field">
+          <label for="regEmail" id="lblRegEmail">Email</label>
+          <input class="auth-input" type="email" id="regEmail" autocomplete="email" placeholder="you@email.com" />
+        </div>
+        <div class="auth-field">
+          <label for="regPassword" id="lblRegPassword">Password</label>
+          <input class="auth-input" type="password" id="regPassword" autocomplete="new-password" placeholder="At least 6 characters" />
+        </div>
+        <div class="auth-field">
+          <label for="regConfirm" id="lblRegConfirm">Confirm password</label>
+          <input class="auth-input" type="password" id="regConfirm" autocomplete="new-password" placeholder="Repeat password" />
+        </div>
+        <button class="auth-submit" type="submit" id="regSubmit">Create account</button>
+      </form>
+
+      <!-- Forgot password: request reset link -->
+      <form class="auth-form" id="forgotForm" hidden novalidate>
+        <p class="auth-panel-head" id="forgotHeading">Reset your password</p>
+        <p class="auth-panel-sub" id="forgotSub">Enter your email and we'll send you a reset link.</p>
+        <div class="auth-field">
+          <label for="forgotEmail" id="lblForgotEmail">Email</label>
+          <input class="auth-input" type="email" id="forgotEmail" autocomplete="email" placeholder="you@email.com" />
+        </div>
+        <button class="auth-submit" type="submit" id="forgotSubmit">Send reset link</button>
+        <button type="button" class="auth-back">← Back to sign in</button>
+      </form>
+
+      <!-- Reset password: set a new one (opened from the reset link) -->
+      <form class="auth-form" id="resetForm" hidden novalidate>
+        <p class="auth-panel-head" id="resetHeading">Set a new password</p>
+        <div class="auth-field">
+          <label for="resetPassword" id="lblResetPw">New password</label>
+          <input class="auth-input" type="password" id="resetPassword" autocomplete="new-password" placeholder="At least 6 characters" />
+        </div>
+        <div class="auth-field">
+          <label for="resetConfirm" id="lblResetConfirm">Confirm new password</label>
+          <input class="auth-input" type="password" id="resetConfirm" autocomplete="new-password" placeholder="Repeat password" />
+        </div>
+        <button class="auth-submit" type="submit" id="resetSubmit">Change password</button>
+        <button type="button" class="auth-back">← Back to sign in</button>
+      </form>
+
+      <div class="auth-msg" id="authMsg" aria-live="polite"></div>
+
+      <div id="authSocial">
+      <div class="auth-divider"><span id="authOr">or continue with</span></div>
+
+      <div class="auth-oauth">
+        <div id="gsiContainer"></div>
+        <button class="oauth-btn google" id="googleBtn" type="button">
+          <span class="oauth-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48" width="20" height="20">
+              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.28-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+            </svg>
+          </span><span id="googleLabel">Continue with Google</span>
+        </button>
+        <button class="oauth-btn facebook" id="facebookBtn" type="button">
+          <span class="oauth-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22">
+              <path fill="#1877F2" d="M24 12c0-6.627-5.373-12-12-12S0 5.373 0 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874V12h3.328l-.532 3.469h-2.796v8.385C19.612 22.954 24 17.99 24 12z"/>
+            </svg>
+          </span><span id="facebookLabel">Continue with Facebook</span>
+        </button>
+      </div>
+      </div><!-- /authSocial -->
+
+      <p class="auth-foot" id="authFoot">Your account is stored only in this browser.</p>
+    </div>
+  </div>
+
+  <div class="deck-bar">
+    <div class="deck-switch" role="group" aria-label="Choose a deck">
+      <button class="deck-btn active" data-deck="tarot" id="deckTarot">🔮 Tarot</button>
+      <button class="deck-btn" data-deck="poker" id="deckPoker">🂠 Playing Cards</button>
+      <button class="deck-btn" data-deck="birthday" id="deckBirthday">🎂 Birth Date</button>
+    </div>
+  </div>
+
+  <header class="hero">
+    <p class="kicker" id="kicker">˚ ✦ ˚ moonlit fortunes ˚ ✦ ˚</p>
+    <h1 id="title">Luna</h1>
+    <p class="subtitle" id="subtitle">Hold your question gently in mind, then let the cards guide you.</p>
+  </header>
+
+  <main>
+    <section class="controls">
+      <div class="mode-switch" role="tablist" aria-label="Choose your reading">
+        <button class="mode-btn active" data-mode="1" role="tab" id="modeBtn1">Single Card</button>
+        <button class="mode-btn" data-mode="3" role="tab" id="modeBtn3">Three Cards</button>
+      </div>
+      <p class="mode-hint" id="modeHint">A single card for the question of the day.</p>
+      <button class="draw-btn" id="drawBtn">
+        <span id="drawLabel">Draw Cards</span> ✨
+      </button>
+    </section>
+
+    <section class="picker" id="picker" aria-live="polite" hidden></section>
+
+    <section class="board" id="board" aria-live="polite"></section>
+
+    <!-- ดูดวงวันเดือนปีเกิด -->
+    <section class="birth-section" id="birthSection" hidden>
+      <form class="birth-form" id="birthForm" novalidate>
+        <div class="birth-field">
+          <label id="lblBirthdate">Date of birth</label>
+          <div class="cal-wrap">
+            <button type="button" class="birth-input cal-trigger" id="calTrigger" aria-haspopup="dialog">
+              <span id="calDisplay">Select your date…</span>
+              <span class="cal-icon" aria-hidden="true">📅</span>
+            </button>
+            <div class="cal-pop" id="calPop" role="dialog" aria-label="Choose date" hidden>
+              <div class="cal-head">
+                <button type="button" class="cal-nav" id="calPrev" aria-label="Previous month">‹</button>
+                <select class="cal-select" id="calMonth" aria-label="Month"></select>
+                <select class="cal-select" id="calYear" aria-label="Year"></select>
+                <button type="button" class="cal-nav" id="calNext" aria-label="Next month">›</button>
+              </div>
+              <div class="cal-weekdays" id="calWeekdays"></div>
+              <div class="cal-grid" id="calGrid"></div>
+            </div>
+          </div>
+        </div>
+        <button class="birth-submit" type="submit" id="birthSubmit">Reveal my reading ✨</button>
+      </form>
+      <div class="birth-result" id="birthResult" aria-live="polite"></div>
+    </section>
+
+    <section class="ai-section">
+      <button class="ai-btn" id="aiBtn">🔮 Interpret with AI</button>
+
+      <div class="ai-box" id="aiBox" hidden>
+        <div class="ai-box-head">
+          <span class="ai-box-title" id="aiBoxTitle">AI Fortune Reading</span>
+        </div>
+        <div class="ai-content" id="aiContent"></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="settings-overlay" id="settingsOverlay" hidden>
+    <div class="settings-modal" role="dialog" aria-modal="true">
+      <button class="settings-close" id="settingsClose" aria-label="Close">✕</button>
+      <h2 class="settings-heading" id="settingsHeading">Settings</h2>
+
+      <!-- Dark theme -->
+      <div class="settings-block row">
+        <span class="settings-label" id="themeLabel">Dark theme</span>
+        <label class="switch">
+          <input type="checkbox" id="themeToggle" />
+          <span class="switch-track"><span class="switch-thumb"></span></span>
+        </label>
+      </div>
+
+      <!-- AI model -->
+      <div class="settings-block">
+        <span class="settings-label" id="modelLabel">AI model</span>
+        <div class="model-switch" id="modelSwitch">
+          <button class="model-btn" data-model="claude-haiku-4-5">Haiku</button>
+          <button class="model-btn" data-model="claude-sonnet-4-6">Sonnet</button>
+          <button class="model-btn" data-model="claude-opus-4-8">Opus</button>
+        </div>
+        <span class="settings-hint" id="modelHint"></span>
+      </div>
+
+      <!-- API key -->
+      <div class="settings-block">
+        <span class="settings-label" id="aiKeyTitle">Claude API key</span>
+        <p class="settings-note" id="aiKeyNote">Stored only in this browser.</p>
+        <div class="settings-row">
+          <input type="password" id="aiKeyInput" class="ai-key-input" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" />
+          <button class="ai-key-save" id="aiKeySave">Save key</button>
+        </div>
+        <div class="settings-foot">
+          <span class="settings-status" id="aiKeyStatus"></span>
+          <button class="ai-key-remove" id="aiKeyRemove" hidden>Remove key</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p id="footer">For entertainment purposes only · May your day be bright ♡</p>
+  </footer>
+
+  <script src="cards.js"></script>
+  <script src="poker.js"></script>
+  <script src="script.js"></script>
+  <script src="auth.js"></script>
+  <script src="birthday.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+# dependencies
+**/node_modules/
+
+# env / secrets — อย่า commit API key เด็ดขาด
+**/.env
+.env
+
+# local database (JSON store)
+backend/data/db.json
+
+# logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
