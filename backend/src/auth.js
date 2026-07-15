@@ -18,8 +18,9 @@ export async function verifyPassword(pw, hash) {
   return bcrypt.compare(pw, hash);
 }
 
-export function signToken(user) {
-  return jwt.sign({ sub: user.email }, SECRET, { expiresIn: "7d" });
+// access token อายุสั้น (15 นาที) — ต่ออายุด้วย refresh token
+export function signAccessToken(user) {
+  return jwt.sign({ sub: user.email }, SECRET, { expiresIn: "15m" });
 }
 export function verifyToken(token) {
   try {

@@ -17,18 +17,19 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, "..", "data");
 const DB_FILE = join(DATA_DIR, "db.json");
 
-let db = { users: [], events: [] };
+let db = { users: [], events: [], refresh: [] };
 
 function load() {
   if (existsSync(DB_FILE)) {
     try {
       db = JSON.parse(readFileSync(DB_FILE, "utf8"));
     } catch {
-      db = { users: [], events: [] };
+      db = { users: [], events: [], refresh: [] };
     }
   }
   if (!Array.isArray(db.users)) db.users = [];
   if (!Array.isArray(db.events)) db.events = [];
+  if (!Array.isArray(db.refresh)) db.refresh = [];
 }
 
 function save() {
@@ -56,5 +57,21 @@ export const eventsDB = {
     if (db.events.length > 100000) db.events.splice(0, db.events.length - 100000);
     save();
     return event;
+  },
+};
+
+// refresh token (คงอยู่ข้ามการรีสตาร์ท)
+export const refreshDB = {
+  find: (token) => db.refresh.find((x) => x.token === token),
+  add: (rec) => { db.refresh.push(rec); save(); return rec; },
+  remove: (token) => {
+    const i = db.refresh.findIndex((x) => x.token === token);
+    if (i >= 0) { db.refresh.splice(i, 1); save(); }
+  },
+  purge: () => {
+    const now = Date.now();
+    const before = db.refresh.length;
+    db.refresh = db.refresh.filter((x) => x.expires > now);
+    if (db.refresh.length !== before) save();
   },
 };

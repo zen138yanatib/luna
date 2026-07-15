@@ -383,55 +383,36 @@
     "Respond ONLY with the reading itself — no preamble, no reasoning, no meta-commentary, no headings. " +
     "Be poetic but clear, kind, and hopeful. Reply in the language requested by the user.";
 
-  // เรียก Claude Messages API แบบ streaming ตรงจากเบราว์เซอร์
-  async function streamReading(apiKey, onDelta) {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+  // เรียก AI ผ่าน backend (POST /api/ai/interpret) — API key อยู่ฝั่ง server
+  // backend สตรีมกลับมาเป็น "ข้อความล้วน" จึงต่อ chunk ได้เลย
+  async function streamReading(onDelta) {
+    const LA = window.LunaAuth;
+    const base = (LA && LA.base) || (window.LUNA_CONFIG && window.LUNA_CONFIG.apiBase) || "";
+    const token = LA ? LA.getToken() : "";
+    const res = await fetch(base + "/api/ai/interpret", {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true"
-      },
-      body: JSON.stringify({
-        model: aiModel,
-        max_tokens: 1024,
-        stream: true,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: "user", content: buildPrompt() }]
-      })
+      headers: Object.assign(
+        { "content-type": "application/json" },
+        token ? { Authorization: "Bearer " + token } : {}
+      ),
+      body: JSON.stringify({ prompt: buildPrompt(), model: aiModel })
     });
 
     if (!res.ok) {
       let detail = "HTTP " + res.status;
       try {
         const err = await res.json();
-        if (err && err.error && err.error.message) detail = err.error.message;
+        if (err && err.error) detail = err.error;
       } catch (e) {}
       throw new Error(detail);
     }
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
-    let buffer = "";
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop();
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed.startsWith("data:")) continue;
-        const payload = trimmed.slice(5).trim();
-        if (!payload || payload === "[DONE]") continue;
-        try {
-          const ev = JSON.parse(payload);
-          if (ev.type === "content_block_delta" && ev.delta && ev.delta.type === "text_delta") {
-            onDelta(ev.delta.text);
-          }
-        } catch (e) {}
-      }
+      onDelta(decoder.decode(value, { stream: true }));
     }
   }
 
@@ -468,13 +449,6 @@
       return;
     }
 
-    const apiKey = localStorage.getItem(KEY_STORE);
-    if (!apiKey) {
-      runAfterSave = true;      // มี key เมื่อไหร่ให้ทำนายต่อทันที
-      openSettings();
-      return;
-    }
-
     aiBusy = true;
     aiBtn.disabled = true;
     aiBox.hidden = false;
@@ -484,7 +458,7 @@
 
     let first = true;
     try {
-      await streamReading(apiKey, (chunk) => {
+      await streamReading((chunk) => {
         if (first) {
           aiContent.textContent = "";
           aiContent.classList.remove("loading");
@@ -552,6 +526,11 @@
     clearTimeout(fanResizeTimer);
     fanResizeTimer = setTimeout(layoutFan, 150);
   });
+
+  // โหมด server: API key อยู่ฝั่ง backend แล้ว จึงซ่อนช่องกรอก key ในหน้า Settings
+  const keyTitleEl = document.getElementById("aiKeyTitle");
+  const keyBlock = keyTitleEl && keyTitleEl.closest(".settings-block");
+  if (keyBlock) keyBlock.style.display = "none";
 
   applyTheme();
   applyModel();

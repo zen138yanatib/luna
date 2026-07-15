@@ -1,0 +1,12 @@
+{
+  "name": "luna-screenshots",
+  "private": true,
+  "type": "module",
+  "description": "แคปหน้าจอ Luna ทุกหน้า ทั้งธีมสว่าง/มืด อัตโนมัติ (ใช้ Edge/Chrome ในเครื่อง)",
+  "scripts": {
+    "shots": "node capture.mjs"
+  },
+  "dependencies": {
+    "playwright-core": "^1.48.0"
+  }
+}

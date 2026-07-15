@@ -1,34 +1,44 @@
 // =====================================================================
-// server.js — Luna Backend API
+// server.js — Luna Backend API (แข็งแรงขึ้น)
 // ---------------------------------------------------------------------
-//   POST /api/auth/register   สมัคร -> { token, user }
-//   POST /api/auth/login      เข้าสู่ระบบ -> { token, user }
-//   GET  /api/auth/me         ข้อมูลตัวเอง (ต้องมี token)
-//   POST /api/events          บันทึกการดูดวง { type } (ต้องมี token)
-//   POST /api/ai/interpret    ให้ AI ทำนาย (สตรีมข้อความ, ต้องมี token)
-//   GET  /api/admin/stats     สถิติทั้งหมด (เฉพาะแอดมิน)
-//   GET  /api/health          เช็คว่าเซิร์ฟเวอร์ทำงาน
+//  ความปลอดภัย: helmet, ตรวจ input, นโยบายรหัสผ่าน, ล็อกบัญชีเมื่อกรอกผิดบ่อย,
+//  ยืนยันอีเมลตอนสมัคร, access token (15 นาที) + refresh token
+//
+//  auth:   register / verify / resend-verify / login / refresh / logout / me
+//  reset:  request-reset / reset
+//  app:    events / ai/interpret / admin/stats / health
 // =====================================================================
 
 import "dotenv/config";
+import { randomBytes } from "node:crypto";
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 
-import { usersDB, eventsDB } from "./src/db.js";
+import { usersDB, eventsDB, refreshDB } from "./src/db.js";
 import {
   hashPassword,
   verifyPassword,
-  signToken,
+  signAccessToken,
   verifyToken,
   isAdminIdentity,
   publicUser,
 } from "./src/auth.js";
+import { validateName, validateEmail, validatePassword, emailRe } from "./src/validate.js";
 
 const app = express();
 const PORT = process.env.PORT || 8787;
 const DAILY_LIMIT = parseInt(process.env.DAILY_LIMIT || "0", 10);
 
-// อนุญาต origin ตาม .env (ค่าเริ่มต้น * = ทุกที่ เหมาะกับตอนทดสอบ)
+// ---------- security headers ----------
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // เป็น API (ตอบ JSON/ข้อความ) ไม่ได้เสิร์ฟ HTML
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // ให้ frontend คนละ origin อ่านได้
+  })
+);
+
+// ---------- CORS ----------
 const origins = (process.env.CORS_ORIGIN || "*")
   .split(",")
   .map((s) => s.trim())
@@ -36,7 +46,18 @@ const origins = (process.env.CORS_ORIGIN || "*")
 app.use(cors({ origin: origins.includes("*") ? true : origins }));
 app.use(express.json({ limit: "1mb" }));
 
-const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const now = () => Date.now();
+const nowISO = () => new Date().toISOString();
+
+// ---------- token helpers ----------
+const REFRESH_TTL = 30 * 24 * 60 * 60 * 1000; // 30 วัน
+function issueTokens(user) {
+  const accessToken = signAccessToken(user);
+  const refreshToken = randomBytes(48).toString("hex");
+  refreshDB.purge();
+  refreshDB.add({ token: refreshToken, email: user.email, expires: now() + REFRESH_TTL });
+  return { accessToken, refreshToken };
+}
 
 // ---------- middleware ----------
 function auth(req, res, next) {
@@ -53,71 +74,182 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-// ---------- health ----------
+// ---------- ล็อกบัญชีเมื่อกรอกรหัสผิดบ่อย ----------
+const MAX_FAILS = 5;
+const LOCK_MS = 15 * 60 * 1000; // ล็อก 15 นาที
+const fails = new Map(); // email -> { count, lockUntil }
+function isLocked(email) {
+  const f = fails.get(email);
+  return !!(f && f.lockUntil && f.lockUntil > now());
+}
+function recordFail(email) {
+  const f = fails.get(email) || { count: 0, lockUntil: 0 };
+  f.count++;
+  if (f.count >= MAX_FAILS) { f.lockUntil = now() + LOCK_MS; f.count = 0; }
+  fails.set(email, f);
+}
+function clearFails(email) { fails.delete(email); }
+
+// ---------- token ยืนยันอีเมล / รีเซ็ตรหัส (โหมดสาธิต: ยังไม่มีเซิร์ฟเวอร์อีเมล) ----------
+const VERIFY_TTL = 24 * 60 * 60 * 1000;
+const RESET_TTL = 30 * 60 * 1000;
+const verifyTokens = new Map(); // token -> { email, expires }
+const resetTokens = new Map();  // token -> { email, expires }
+function purge(map) { const t = now(); for (const [k, v] of map) if (v.expires <= t) map.delete(k); }
+function makeToken(map, email, ttl) {
+  purge(map);
+  const tk = randomBytes(24).toString("hex");
+  map.set(tk, { email, expires: now() + ttl });
+  return tk;
+}
+
+// ---------- role ----------
+function resolveRole(user) {
+  if (!user.role) {
+    const noAdmin = !usersDB.all().some((u) => u.role === "admin");
+    user.role = noAdmin || isAdminIdentity(user.email, user.name) ? "admin" : "user";
+  } else if (isAdminIdentity(user.email, user.name) && user.role !== "admin") {
+    user.role = "admin";
+  }
+}
+
+// ================= health =================
 app.get("/api/health", (req, res) => {
-  res.json({ ok: true, time: Date.now(), hasApiKey: !!process.env.ANTHROPIC_API_KEY });
+  res.json({ ok: true, time: now(), hasApiKey: !!process.env.ANTHROPIC_API_KEY });
 });
 
-// ---------- สมัครสมาชิก ----------
+// ================= สมัครสมาชิก (+ ยืนยันอีเมล) =================
 app.post("/api/auth/register", async (req, res) => {
   const name = (req.body?.name || "").trim();
   const email = (req.body?.email || "").trim().toLowerCase();
   const password = req.body?.password || "";
 
-  if (!name || !email || !password) return res.status(400).json({ error: "missing_fields" });
-  if (!emailRe.test(email)) return res.status(400).json({ error: "bad_email" });
-  if (password.length < 6) return res.status(400).json({ error: "short_password" });
+  const err = validateName(name) || validateEmail(email) || validatePassword(password);
+  if (err) return res.status(400).json({ error: err });
   if (usersDB.findByEmail(email)) return res.status(409).json({ error: "exists" });
 
   const isFirst = usersDB.all().length === 0;
   const user = {
-    name,
-    email,
+    name, email,
     passHash: await hashPassword(password),
     provider: "email",
     role: isFirst || isAdminIdentity(email, name) ? "admin" : "user",
-    createdAt: new Date().toISOString(),
+    verified: false,
+    createdAt: nowISO(),
   };
   usersDB.add(user);
-  res.json({ token: signToken(user), user: publicUser(user) });
+
+  const verifyToken = makeToken(verifyTokens, email, VERIFY_TTL);
+  // ยังไม่มีระบบส่งอีเมล → ส่ง token กลับให้ frontend แสดงลิงก์ยืนยัน (เฟส 2 ค่อยส่งเมลจริง)
+  res.json({ ok: true, needVerify: true, verifyToken });
 });
 
-// ---------- เข้าสู่ระบบ ----------
+// ยืนยันอีเมล
+app.post("/api/auth/verify", (req, res) => {
+  const token = req.body?.token || "";
+  purge(verifyTokens);
+  const entry = verifyTokens.get(token);
+  if (!entry) return res.status(400).json({ error: "invalid_or_expired" });
+  const user = usersDB.findByEmail(entry.email);
+  if (!user) return res.status(400).json({ error: "invalid_or_expired" });
+  user.verified = true;
+  usersDB.save();
+  verifyTokens.delete(token);
+  res.json({ ok: true, email: user.email });
+});
+
+// ส่งลิงก์ยืนยันอีกครั้ง
+app.post("/api/auth/resend-verify", (req, res) => {
+  const email = (req.body?.email || "").trim().toLowerCase();
+  const user = usersDB.findByEmail(email);
+  if (!user || user.verified) return res.json({ ok: true }); // ไม่เปิดเผยสถานะบัญชี
+  const verifyToken = makeToken(verifyTokens, email, VERIFY_TTL);
+  res.json({ ok: true, verifyToken });
+});
+
+// ================= เข้าสู่ระบบ =================
 app.post("/api/auth/login", async (req, res) => {
   const email = (req.body?.email || "").trim().toLowerCase();
   const password = req.body?.password || "";
+  if (!emailRe.test(email) || !password) return res.status(400).json({ error: "invalid_credentials" });
+  if (isLocked(email)) return res.status(423).json({ error: "account_locked" });
 
   const user = usersDB.findByEmail(email);
-  if (!user || !user.passHash) return res.status(401).json({ error: "invalid_credentials" });
-  if (!(await verifyPassword(password, user.passHash)))
-    return res.status(401).json({ error: "invalid_credentials" });
+  if (!user || !user.passHash) { recordFail(email); return res.status(401).json({ error: "invalid_credentials" }); }
 
-  // ยกระดับเป็นแอดมินถ้าตรงรายชื่อ หรือยังไม่มีแอดมินเลย
-  if (!user.role) {
-    const noAdmin = !usersDB.all().some((u) => u.role === "admin");
-    user.role = noAdmin || isAdminIdentity(email, user.name) ? "admin" : "user";
-    usersDB.save();
-  } else if (isAdminIdentity(email, user.name) && user.role !== "admin") {
-    user.role = "admin";
-    usersDB.save();
-  }
-  res.json({ token: signToken(user), user: publicUser(user) });
+  const okPw = await verifyPassword(password, user.passHash);
+  if (!okPw) { recordFail(email); return res.status(401).json({ error: "invalid_credentials" }); }
+
+  if (!user.verified) return res.status(403).json({ error: "email_not_verified" });
+
+  clearFails(email);
+  resolveRole(user);
+  if (!user.createdAt) user.createdAt = nowISO();
+  usersDB.save();
+
+  const { accessToken, refreshToken } = issueTokens(user);
+  res.json({ accessToken, refreshToken, user: publicUser(user) });
 });
 
-// ---------- ข้อมูลตัวเอง ----------
+// ต่ออายุ access token
+app.post("/api/auth/refresh", (req, res) => {
+  const refreshToken = req.body?.refreshToken || "";
+  refreshDB.purge();
+  const entry = refreshDB.find(refreshToken);
+  if (!entry) return res.status(401).json({ error: "invalid_refresh" });
+  const user = usersDB.findByEmail(entry.email);
+  if (!user) { refreshDB.remove(refreshToken); return res.status(401).json({ error: "invalid_refresh" }); }
+  res.json({ accessToken: signAccessToken(user), user: publicUser(user) });
+});
+
+// ออกจากระบบ (เพิกถอน refresh token)
+app.post("/api/auth/logout", (req, res) => {
+  const refreshToken = req.body?.refreshToken || "";
+  if (refreshToken) refreshDB.remove(refreshToken);
+  res.json({ ok: true });
+});
+
+// ข้อมูลตัวเอง
 app.get("/api/auth/me", auth, (req, res) => {
   res.json({ user: publicUser(req.user) });
 });
 
-// ---------- บันทึกสถิติการดูดวง ----------
+// ================= ลืมรหัสผ่าน =================
+app.post("/api/auth/request-reset", (req, res) => {
+  const email = (req.body?.email || "").trim().toLowerCase();
+  const user = usersDB.findByEmail(email);
+  if (!user || !user.passHash) return res.json({ ok: true }); // ไม่เปิดเผยสถานะบัญชี
+  const resetToken = makeToken(resetTokens, email, RESET_TTL);
+  res.json({ ok: true, resetToken });
+});
+
+app.post("/api/auth/reset", async (req, res) => {
+  const token = req.body?.token || "";
+  const password = req.body?.password || "";
+  const pwErr = validatePassword(password);
+  if (pwErr) return res.status(400).json({ error: pwErr });
+  purge(resetTokens);
+  const entry = resetTokens.get(token);
+  if (!entry) return res.status(400).json({ error: "invalid_or_expired" });
+  const user = usersDB.findByEmail(entry.email);
+  if (!user) return res.status(400).json({ error: "invalid_or_expired" });
+  user.passHash = await hashPassword(password);
+  user.verified = true; // ตั้งรหัสใหม่ผ่านลิงก์ = ยืนยันความเป็นเจ้าของอีเมลแล้ว
+  usersDB.save();
+  resetTokens.delete(token);
+  clearFails(user.email);
+  res.json({ ok: true, email: user.email });
+});
+
+// ================= บันทึกสถิติการดูดวง =================
 app.post("/api/events", auth, (req, res) => {
   const allowed = ["tarot", "poker", "birthday", "ai"];
   const type = allowed.includes(req.body?.type) ? req.body.type : "tarot";
-  eventsDB.add({ email: req.user.email, name: req.user.name, type, ts: Date.now() });
+  eventsDB.add({ email: req.user.email, name: req.user.name, type, ts: now() });
   res.json({ ok: true });
 });
 
-// ---------- AI ทำนาย (proxy ไป Claude + สตรีมกลับ) ----------
+// ================= AI ทำนาย (proxy ไป Claude) =================
 const ALLOWED_MODELS = new Set([
   "claude-haiku-4-5",
   "claude-sonnet-5",
@@ -134,9 +266,7 @@ function overQuota(email) {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
   const since = start.getTime();
-  const count = eventsDB
-    .all()
-    .filter((e) => e.email === email && e.type === "ai" && e.ts >= since).length;
+  const count = eventsDB.all().filter((e) => e.email === email && e.type === "ai" && e.ts >= since).length;
   return count >= DAILY_LIMIT;
 }
 
@@ -145,7 +275,8 @@ app.post("/api/ai/interpret", auth, async (req, res) => {
   if (!key) return res.status(500).json({ error: "server_no_api_key" });
 
   const prompt = req.body?.prompt;
-  if (!prompt || typeof prompt !== "string") return res.status(400).json({ error: "missing_prompt" });
+  if (!prompt || typeof prompt !== "string" || prompt.length > 8000)
+    return res.status(400).json({ error: "bad_prompt" });
   if (overQuota(req.user.email)) return res.status(429).json({ error: "daily_limit_reached" });
 
   const model = ALLOWED_MODELS.has(req.body?.model) ? req.body.model : "claude-haiku-4-5";
@@ -168,23 +299,24 @@ app.post("/api/ai/interpret", auth, async (req, res) => {
       }),
     });
   } catch (err) {
-    return res.status(502).json({ error: "upstream_unreachable", detail: String(err) });
+    return res.status(502).json({ error: "upstream_unreachable" });
   }
-
   if (!upstream.ok) {
     const detail = await upstream.text().catch(() => "");
     return res.status(502).json({ error: "upstream_error", status: upstream.status, detail });
   }
 
-  // สตรีมเฉพาะ "ข้อความ" กลับไปให้ frontend (แปลง SSE ของ Anthropic → text ล้วน)
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache");
 
+  const reader = upstream.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
   try {
-    for await (const chunk of upstream.body) {
-      buffer += decoder.decode(chunk, { stream: true });
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split("\n");
       buffer = lines.pop();
       for (const line of lines) {
@@ -203,19 +335,16 @@ app.post("/api/ai/interpret", auth, async (req, res) => {
       }
     }
   } catch (err) {
-    // สตรีมสะดุด — จบ response เท่าที่ได้
+    /* สตรีมสะดุด — จบเท่าที่ได้ */
   }
 
-  eventsDB.add({ email: req.user.email, name: req.user.name, type: "ai", model, ts: Date.now() });
+  eventsDB.add({ email: req.user.email, name: req.user.name, type: "ai", model, ts: now() });
   res.end();
 });
 
-// ---------- สถิติสำหรับแอดมิน ----------
+// ================= สถิติสำหรับแอดมิน =================
 app.get("/api/admin/stats", auth, requireAdmin, (req, res) => {
-  res.json({
-    users: usersDB.all().map(publicUser),
-    events: eventsDB.all(),
-  });
+  res.json({ users: usersDB.all().map(publicUser), events: eventsDB.all() });
 });
 
 app.listen(PORT, () => {

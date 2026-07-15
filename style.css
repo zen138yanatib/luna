@@ -983,9 +983,9 @@ body.dark .ai-btn:hover:not(:disabled) { background: #3c332b; }
   inset: 0;
   z-index: 50;
   background:
-    radial-gradient(circle at 20% 10%, #fdf6ea 0%, transparent 45%),
-    radial-gradient(circle at 85% 80%, #f7ebd6 0%, transparent 40%),
-    var(--cream);
+    radial-gradient(circle at 22% 14%, #574a42 0%, transparent 52%),
+    radial-gradient(circle at 80% 84%, #454150 0%, transparent 48%),
+    linear-gradient(160deg, #3a332f 0%, #272431 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1019,23 +1019,6 @@ body.dark .ai-btn:hover:not(:disabled) { background: #3c332b; }
   height: 3px;
   background: linear-gradient(90deg, transparent, var(--gold), var(--accent), var(--gold), transparent);
 }
-/* slow shimmer sweeping across the card */
-.auth-card::after {
-  content: "";
-  position: absolute;
-  top: 0; left: -60%;
-  width: 45%; height: 100%;
-  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.35), transparent);
-  transform: skewX(-18deg);
-  animation: authSheen 7s ease-in-out infinite;
-  pointer-events: none;
-}
-@keyframes authSheen {
-  0%   { left: -60%; }
-  55%  { left: 130%; }
-  100% { left: 130%; }
-}
-
 .auth-lang {
   position: absolute;
   top: 16px; right: 16px;
@@ -1343,13 +1326,72 @@ body.dark .auth-aura .orb { opacity: 0.25; }
   animation: twinkleFloat 7s ease-in-out infinite;
 }
 .float-sym.s1 { left: 12%; top: 22%; font-size: 1.4rem; animation-delay: 0s; }
-.float-sym.s2 { left: 82%; top: 18%; font-size: 1.9rem; animation-delay: 1.4s; }
+/* พระจันทร์ — ดวงใหญ่เด่น เรืองแสงชัด ไม่กระพริบหาย */
+.float-sym.s2 {
+  left: 78%;
+  top: 12%;
+  font-size: 4.4rem;
+  color: #f7e6b8;
+  opacity: 0.95;
+  text-shadow: 0 0 26px rgba(247, 230, 184, 0.85), 0 0 54px rgba(216, 182, 106, 0.5);
+  animation: moonGlow 5s ease-in-out infinite;
+}
+@keyframes moonGlow {
+  0%, 100% {
+    opacity: 0.9;
+    transform: translateY(0) scale(1);
+    text-shadow: 0 0 22px rgba(247, 230, 184, 0.7), 0 0 44px rgba(216, 182, 106, 0.4);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-6px) scale(1.06);
+    text-shadow: 0 0 34px rgba(247, 230, 184, 0.95), 0 0 66px rgba(216, 182, 106, 0.6);
+  }
+}
+@media (max-width: 560px) {
+  .float-sym.s2 { font-size: 3rem; left: 70%; top: 6%; }
+}
 .float-sym.s3 { left: 18%; top: 74%; font-size: 1.2rem; animation-delay: 2.6s; }
 .float-sym.s4 { left: 78%; top: 70%; font-size: 1rem;   animation-delay: 3.8s; }
 .float-sym.s5 { left: 50%; top: 10%; font-size: 1.1rem; animation-delay: 5s; }
+.float-sym.s6 { left: 32%; top: 42%; font-size: 1rem;   animation-delay: 1s; }
+.float-sym.s7 { left: 66%; top: 48%; font-size: 1.3rem; animation-delay: 3s; }
+.float-sym.s8 { left: 8%;  top: 50%; font-size: 0.9rem; animation-delay: 4.4s; }
+.float-sym.s9 { left: 90%; top: 42%; font-size: 1.1rem; animation-delay: 2s; }
 @keyframes twinkleFloat {
   0%, 100% { opacity: 0; transform: translateY(10px) scale(0.7); }
-  50%      { opacity: 0.85; transform: translateY(-10px) scale(1); }
+  50%      { opacity: 0.9; transform: translateY(-10px) scale(1); }
+}
+
+/* ดาวกระพริบเม็ดเล็กกระจายทั่วพื้นหลังหน้า login */
+.auth-aura .astar {
+  position: absolute;
+  width: 3px; height: 3px;
+  border-radius: 50%;
+  background: #f6e8c8;
+  box-shadow: 0 0 8px 1px rgba(244, 226, 180, 0.9);
+  opacity: 0;
+  animation: astarTwinkle 4.2s ease-in-out infinite;
+}
+.auth-aura .astar:nth-child(1)  { top: 9%;  left: 20%; animation-delay: 0s; }
+.auth-aura .astar:nth-child(2)  { top: 16%; left: 60%; width: 4px; height: 4px; animation-delay: 0.7s; }
+.auth-aura .astar:nth-child(3)  { top: 26%; left: 8%;  animation-delay: 1.5s; }
+.auth-aura .astar:nth-child(4)  { top: 30%; left: 88%; width: 2px; height: 2px; animation-delay: 0.4s; }
+.auth-aura .astar:nth-child(5)  { top: 40%; left: 30%; width: 4px; height: 4px; animation-delay: 2.2s; }
+.auth-aura .astar:nth-child(6)  { top: 46%; left: 72%; animation-delay: 1.1s; }
+.auth-aura .astar:nth-child(7)  { top: 54%; left: 14%; width: 2px; height: 2px; animation-delay: 2.7s; }
+.auth-aura .astar:nth-child(8)  { top: 58%; left: 90%; width: 4px; height: 4px; animation-delay: 0.9s; }
+.auth-aura .astar:nth-child(9)  { top: 66%; left: 40%; animation-delay: 1.9s; }
+.auth-aura .astar:nth-child(10) { top: 72%; left: 66%; width: 2px; height: 2px; animation-delay: 3.1s; }
+.auth-aura .astar:nth-child(11) { top: 80%; left: 22%; width: 4px; height: 4px; animation-delay: 0.2s; }
+.auth-aura .astar:nth-child(12) { top: 84%; left: 78%; animation-delay: 2.4s; }
+.auth-aura .astar:nth-child(13) { top: 90%; left: 46%; width: 2px; height: 2px; animation-delay: 1.3s; }
+.auth-aura .astar:nth-child(14) { top: 12%; left: 44%; animation-delay: 3.4s; }
+.auth-aura .astar:nth-child(15) { top: 36%; left: 54%; width: 2px; height: 2px; animation-delay: 0.6s; }
+.auth-aura .astar:nth-child(16) { top: 62%; left: 6%;  width: 4px; height: 4px; animation-delay: 2s; }
+@keyframes astarTwinkle {
+  0%, 100% { opacity: 0; transform: scale(0.35); }
+  50%      { opacity: 1; transform: scale(1); }
 }
 
 /* Thai fonts for auth area */
